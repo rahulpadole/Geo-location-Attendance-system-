@@ -21,6 +21,7 @@ import TeacherProfile from "./teacher/Profile";
 
 /* ADMIN */
 import AdminDashboard from "./admin/Dashboard";
+import Timetable from "./admin/Timetable";
 import CollegeSettings from "./admin/CollegeSettings";
 import Teachers from "./admin/Teachers";
 import TeacherForm from "./admin/TeacherForm";
@@ -135,6 +136,9 @@ function App() {
             </AdminRoute>
           }
         />
+
+        <Route path="/admin/timetable" element={<Timetable />} />
+
 
         <Route
           path="/admin/teachers"

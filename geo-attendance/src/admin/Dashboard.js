@@ -26,11 +26,10 @@ export default function AdminDashboard() {
   const loadDashboardData = async () => {
     try {
       /* ------------------ TOTAL TEACHERS ------------------ */
-      const usersSnap = await getDocs(collection(db, "users"));
-      const teachers = usersSnap.docs
-        .map((d) => d.data())
-        .filter((u) => u.role === "teacher");
-      setTotalTeachers(teachers.length);
+      const teacherSnap = await getDocs(
+        query(collection(db, "users"), where("role", "==", "teacher"))
+      );
+      setTotalTeachers(teacherSnap.size);
 
       /* ------------------ TODAY ATTENDANCE ------------------ */
       const today = new Date().toISOString().split("T")[0];
@@ -51,21 +50,20 @@ export default function AdminDashboard() {
       setLateCount(late);
 
       /* ------------------ COLLEGE LOCATION STATUS ------------------ */
-      const collegeRef = doc(db, "collegeSettings", "main");
-      const collegeSnap = await getDoc(collegeRef);
+      const collegeSnap = await getDoc(doc(db, "collegeSettings", "main"));
 
-      if (collegeSnap.exists()) {
+      if (!collegeSnap.exists()) {
+        setCollegeStatus("Location Not Set ❌");
+      } else {
         const { latitude, longitude, radius } = collegeSnap.data();
         if (latitude && longitude && radius) {
           setCollegeStatus("Location Configured ✅");
         } else {
           setCollegeStatus("Incomplete Location ❌");
         }
-      } else {
-        setCollegeStatus("Location Not Set ❌");
       }
     } catch (error) {
-      console.error("Dashboard Error:", error);
+      console.error("Admin Dashboard Error:", error);
       setCollegeStatus("Error Loading ❌");
     } finally {
       setLoading(false);
@@ -81,14 +79,14 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: "40px auto" }}>
+    <div style={{ maxWidth: 1100, margin: "40px auto", padding: 20 }}>
       <h2 style={{ textAlign: "center" }}>Admin Dashboard</h2>
 
-      {/* ------------------ STATS CARDS ------------------ */}
+      {/* ------------------ STATS ------------------ */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
           gap: 20,
           marginTop: 30,
         }}
@@ -99,10 +97,10 @@ export default function AdminDashboard() {
         <StatCard title="College Location" value={collegeStatus} />
       </div>
 
-      {/* ------------------ ACTION BUTTONS ------------------ */}
+      {/* ------------------ ACTIONS ------------------ */}
       <div
         style={{
-          marginTop: 40,
+          marginTop: 45,
           display: "flex",
           flexWrap: "wrap",
           justifyContent: "center",
@@ -110,8 +108,9 @@ export default function AdminDashboard() {
         }}
       >
         <ActionButton text="College Settings" onClick={() => navigate("/admin/college-settings")} />
+        <ActionButton text="Timetable & Schedule" onClick={() => navigate("/admin/timetable")} />
         <ActionButton text="Teachers" onClick={() => navigate("/admin/teachers")} />
-        <ActionButton text="Attendance" onClick={() => navigate("/admin/attendance")} />
+        <ActionButton text="Attendance Records" onClick={() => navigate("/admin/attendance")} />
         <ActionButton text="Export Data" onClick={() => navigate("/admin/export")} />
         <ActionButton text="Audit Logs" onClick={() => navigate("/admin/audit-logs")} />
         <ActionButton text="My Profile" onClick={() => navigate("/admin/profile")} />
@@ -120,7 +119,7 @@ export default function AdminDashboard() {
   );
 }
 
-/* ------------------ SMALL COMPONENTS ------------------ */
+/* ------------------ UI COMPONENTS ------------------ */
 
 function StatCard({ title, value }) {
   return (
@@ -128,13 +127,14 @@ function StatCard({ title, value }) {
       style={{
         border: "1px solid #ddd",
         padding: 20,
-        borderRadius: 10,
+        borderRadius: 12,
         textAlign: "center",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        background: "#fff",
+        boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
       }}
     >
-      <h4>{title}</h4>
-      <p style={{ fontSize: 22, fontWeight: "bold", margin: 0 }}>{value}</p>
+      <h4 style={{ marginBottom: 10 }}>{title}</h4>
+      <p style={{ fontSize: 24, fontWeight: "bold", margin: 0 }}>{value}</p>
     </div>
   );
 }
@@ -151,6 +151,7 @@ function ActionButton({ text, onClick }) {
         backgroundColor: "#1976d2",
         color: "#fff",
         fontWeight: "bold",
+        minWidth: 180,
       }}
     >
       {text}
