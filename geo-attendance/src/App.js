@@ -8,6 +8,10 @@ import ForgotPassword from "./auth/ForgotPassword";
 import AdminRoute from "./routes/AdminRoute";
 import TeacherRoute from "./routes/TeacherRoute";
 
+/* LAYOUT */
+import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
+
 /* TEACHER */
 import TeacherDashboard from "./teacher/Dashboard";
 import MarkAttendance from "./teacher/Attendance";
@@ -25,11 +29,28 @@ import Export from "./admin/Export";
 import AuditLogs from "./admin/AuditLogs";
 import AdminProfile from "./admin/Profile";
 
+/* ---------- Layout Wrappers ---------- */
+const TeacherLayout = ({ children }) => (
+  <>
+    <Navbar role="teacher" />
+    <main style={{ minHeight: "80vh" }}>{children}</main>
+    <Footer />
+  </>
+);
+
+const AdminLayout = ({ children }) => (
+  <>
+    <Navbar role="admin" />
+    <main style={{ minHeight: "80vh" }}>{children}</main>
+    <Footer />
+  </>
+);
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Root */}
+        {/* ROOT */}
         <Route path="/" element={<Navigate to="/login" replace />} />
 
         {/* AUTH */}
@@ -41,7 +62,9 @@ function App() {
           path="/teacher/dashboard"
           element={
             <TeacherRoute>
-              <TeacherDashboard />
+              <TeacherLayout>
+                <TeacherDashboard />
+              </TeacherLayout>
             </TeacherRoute>
           }
         />
@@ -50,7 +73,9 @@ function App() {
           path="/teacher/attendance"
           element={
             <TeacherRoute>
-              <MarkAttendance />
+              <TeacherLayout>
+                <MarkAttendance />
+              </TeacherLayout>
             </TeacherRoute>
           }
         />
@@ -59,7 +84,9 @@ function App() {
           path="/teacher/leave"
           element={
             <TeacherRoute>
-              <MarkLeave />
+              <TeacherLayout>
+                <MarkLeave />
+              </TeacherLayout>
             </TeacherRoute>
           }
         />
@@ -68,7 +95,9 @@ function App() {
           path="/teacher/history"
           element={
             <TeacherRoute>
-              <History />
+              <TeacherLayout>
+                <History />
+              </TeacherLayout>
             </TeacherRoute>
           }
         />
@@ -77,7 +106,9 @@ function App() {
           path="/teacher/profile"
           element={
             <TeacherRoute>
-              <TeacherProfile />
+              <TeacherLayout>
+                <TeacherProfile />
+              </TeacherLayout>
             </TeacherRoute>
           }
         />
@@ -87,7 +118,9 @@ function App() {
           path="/admin/dashboard"
           element={
             <AdminRoute>
-              <AdminDashboard />
+              <AdminLayout>
+                <AdminDashboard />
+              </AdminLayout>
             </AdminRoute>
           }
         />
@@ -96,7 +129,9 @@ function App() {
           path="/admin/college-settings"
           element={
             <AdminRoute>
-              <CollegeSettings />
+              <AdminLayout>
+                <CollegeSettings />
+              </AdminLayout>
             </AdminRoute>
           }
         />
@@ -105,7 +140,9 @@ function App() {
           path="/admin/teachers"
           element={
             <AdminRoute>
-              <Teachers />
+              <AdminLayout>
+                <Teachers />
+              </AdminLayout>
             </AdminRoute>
           }
         />
@@ -114,7 +151,9 @@ function App() {
           path="/admin/teachers/add"
           element={
             <AdminRoute>
-              <TeacherForm />
+              <AdminLayout>
+                <TeacherForm />
+              </AdminLayout>
             </AdminRoute>
           }
         />
@@ -123,7 +162,9 @@ function App() {
           path="/admin/teachers/edit/:id"
           element={
             <AdminRoute>
-              <TeacherForm />
+              <AdminLayout>
+                <TeacherForm />
+              </AdminLayout>
             </AdminRoute>
           }
         />
@@ -132,7 +173,9 @@ function App() {
           path="/admin/attendance"
           element={
             <AdminRoute>
-              <AdminAttendance />
+              <AdminLayout>
+                <AdminAttendance />
+              </AdminLayout>
             </AdminRoute>
           }
         />
@@ -141,7 +184,9 @@ function App() {
           path="/admin/export"
           element={
             <AdminRoute>
-              <Export />
+              <AdminLayout>
+                <Export />
+              </AdminLayout>
             </AdminRoute>
           }
         />
@@ -150,7 +195,9 @@ function App() {
           path="/admin/audit-logs"
           element={
             <AdminRoute>
-              <AuditLogs />
+              <AdminLayout>
+                <AuditLogs />
+              </AdminLayout>
             </AdminRoute>
           }
         />
@@ -159,12 +206,14 @@ function App() {
           path="/admin/profile"
           element={
             <AdminRoute>
-              <AdminProfile />
+              <AdminLayout>
+                <AdminProfile />
+              </AdminLayout>
             </AdminRoute>
           }
         />
 
-        {/* Fallback */}
+        {/* FALLBACK */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

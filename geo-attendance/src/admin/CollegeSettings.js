@@ -1,137 +1,119 @@
 import { useState, useEffect } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
 
 export default function CollegeSettings() {
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
+  const [radius, setRadius] = useState(150); // meters
   const [loading, setLoading] = useState(false);
-  const [distance, setDistance] = useState(null);
+  const [status, setStatus] = useState("");
 
-  // Load existing college settings
+  // Load existing settings
   useEffect(() => {
     const loadSettings = async () => {
       try {
         const snap = await getDoc(doc(db, "collegeSettings", "main"));
         if (snap.exists()) {
           const data = snap.data();
-          setLat(data.latitude || "");
-          setLng(data.longitude || "");
+          setLat(data.latitude ?? "");
+          setLng(data.longitude ?? "");
+          setRadius(data.radius ?? 150);
         }
       } catch (err) {
         console.error(err);
-        alert("❌ Failed to load college settings");
+        setStatus("❌ Failed to load college settings");
       }
     };
     loadSettings();
   }, []);
 
-  // Save settings to Firestore
-  const save = async () => {
+  // Save settings
+  const saveSettings = async () => {
     if (!lat || !lng) {
-      alert("Please provide valid coordinates.");
+      alert("Latitude & Longitude required");
       return;
     }
+
     setLoading(true);
     try {
       await setDoc(doc(db, "collegeSettings", "main"), {
-        latitude: parseFloat(lat),
-        longitude: parseFloat(lng),
-        radius: 150, // in meters
+        latitude: Number(lat),
+        longitude: Number(lng),
+        radius: Number(radius), // meters
+        updatedAt: new Date(),
       });
-      alert("✅ College location saved successfully!");
+
+      setStatus("✅ College location saved successfully");
     } catch (err) {
       console.error(err);
-      alert("❌ Error saving location!");
+      setStatus("❌ Error saving college location");
     } finally {
       setLoading(false);
     }
   };
 
-  // Get current user location
+  // Use browser location
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser");
+      alert("Geolocation not supported");
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const currentLat = parseFloat(position.coords.latitude.toFixed(6));
-        const currentLng = parseFloat(position.coords.longitude.toFixed(6));
-        setLat(currentLat);
-        setLng(currentLng);
 
-        if (lat && lng) {
-          const dist = getDistanceFromLatLonInKm(currentLat, currentLng, lat, lng);
-          setDistance(dist.toFixed(3));
-        }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLat(pos.coords.latitude.toFixed(6));
+        setLng(pos.coords.longitude.toFixed(6));
       },
-      (error) => {
-        console.error(error);
-        alert("Failed to get current location");
+      (err) => {
+        console.error(err);
+        alert("Failed to get location");
       },
       { enableHighAccuracy: true }
     );
   };
 
-  // Calculate distance in km between two coordinates
-  const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
   return (
-    <>
-      <Navbar role="admin" />
-      <div style={{ maxWidth: 400, margin: "20px auto", padding: 20, border: "1px solid #ccc", borderRadius: 8 }}>
-        <h2>College Settings</h2>
+    <div style={{ maxWidth: 420, margin: "30px auto" }}>
+      <h2>College Settings</h2>
 
-        <div style={{ marginBottom: 10 }}>
-          <label>Latitude:</label>
-          <input
-            type="number"
-            step="0.000001"
-            placeholder="Latitude"
-            value={lat}
-            onChange={(e) => setLat(e.target.value)}
-            style={{ width: "100%", padding: 6, marginTop: 4 }}
-          />
-        </div>
+      <label>Latitude</label>
+      <input
+        type="number"
+        step="0.000001"
+        value={lat}
+        onChange={(e) => setLat(e.target.value)}
+        placeholder="Enter latitude"
+        style={{ width: "100%", padding: 8, marginBottom: 10 }}
+      />
 
-        <div style={{ marginBottom: 10 }}>
-          <label>Longitude:</label>
-          <input
-            type="number"
-            step="0.000001"
-            placeholder="Longitude"
-            value={lng}
-            onChange={(e) => setLng(e.target.value)}
-            style={{ width: "100%", padding: 6, marginTop: 4 }}
-          />
-        </div>
+      <label>Longitude</label>
+      <input
+        type="number"
+        step="0.000001"
+        value={lng}
+        onChange={(e) => setLng(e.target.value)}
+        placeholder="Enter longitude"
+        style={{ width: "100%", padding: 8, marginBottom: 10 }}
+      />
 
-        <button onClick={useCurrentLocation} style={{ marginBottom: 10 }}>
-          📍 Use Current Location
-        </button>
+      <label>Allowed Radius (meters)</label>
+      <input
+        type="number"
+        value={radius}
+        onChange={(e) => setRadius(e.target.value)}
+        style={{ width: "100%", padding: 8, marginBottom: 15 }}
+      />
 
-        {distance !== null && <p>Distance from selected location: {distance} km</p>}
+      <button onClick={useCurrentLocation} style={{ width: "100%", marginBottom: 10 }}>
+        📍 Use Current Location
+      </button>
 
-        <button onClick={save} disabled={loading}>
-          {loading ? "Saving..." : "Save Location"}
-        </button>
-      </div>
-      <Footer />
-    </>
+      <button onClick={saveSettings} disabled={loading} style={{ width: "100%" }}>
+        {loading ? "Saving..." : "Save Settings"}
+      </button>
+
+      {status && <p style={{ marginTop: 10 }}>{status}</p>}
+    </div>
   );
 }

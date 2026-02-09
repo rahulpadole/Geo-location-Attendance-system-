@@ -7,18 +7,18 @@ export default function Teachers() {
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Load teachers from Firestore
+  // Load teachers
   const loadTeachers = async () => {
     setLoading(true);
     try {
       const snap = await getDocs(collection(db, "users"));
-      const data = snap.docs
+      const list = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((t) => t.role === "teacher"); // Only teachers
-      setTeachers(data);
+        .filter((u) => u.role === "teacher");
+      setTeachers(list);
     } catch (err) {
       console.error(err);
-      alert("Failed to load teachers: " + err.message);
+      alert("Failed to load teachers");
     } finally {
       setLoading(false);
     }
@@ -28,32 +28,33 @@ export default function Teachers() {
     loadTeachers();
   }, []);
 
-  // Delete a teacher
-  const remove = async (id) => {
+  // Delete teacher
+  const removeTeacher = async (id) => {
     if (!window.confirm("Are you sure you want to delete this teacher?")) return;
     try {
       await deleteDoc(doc(db, "users", id));
-      alert("✅ Teacher deleted successfully");
-      setTeachers(teachers.filter((t) => t.id !== id));
+      setTeachers((prev) => prev.filter((t) => t.id !== id));
+      alert("Teacher deleted ✅");
     } catch (err) {
       console.error(err);
-      alert("❌ Failed to delete teacher: " + err.message);
+      alert("Failed to delete teacher");
     }
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: "20px auto", padding: 20 }}>
-      <h2>Teachers</h2>
+    <div>
+      <h2>Teacher Management</h2>
+
       <Link to="/admin/teachers/add">
-        <button style={{ marginBottom: 20 }}>➕ Add Teacher</button>
+        <button>➕ Add Teacher</button>
       </Link>
 
       {loading ? (
-        <p>Loading teachers...</p>
+        <p>Loading...</p>
       ) : teachers.length === 0 ? (
-        <p>No teachers found.</p>
+        <p>No teachers found</p>
       ) : (
-        <table border="1" cellPadding="6" style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table border="1" cellPadding="6" style={{ marginTop: 10 }}>
           <thead>
             <tr>
               <th>Name</th>
@@ -68,9 +69,9 @@ export default function Teachers() {
                 <td>{t.department}</td>
                 <td>
                   <Link to={`/admin/teachers/edit/${t.id}`}>
-                    <button style={{ marginRight: 6 }}>✏️ Edit</button>
-                  </Link>
-                  <button onClick={() => remove(t.id)}>🗑️ Delete</button>
+                    <button>✏️ Edit</button>
+                  </Link>{" "}
+                  <button onClick={() => removeTeacher(t.id)}>🗑️ Delete</button>
                 </td>
               </tr>
             ))}

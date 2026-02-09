@@ -4,99 +4,109 @@ import { db } from "../services/firebase";
 import { useParams, useNavigate } from "react-router-dom";
 
 export default function TeacherForm() {
-  const { id } = useParams();
+  const { id } = useParams(); // teacher doc id (for edit)
   const navigate = useNavigate();
 
   const [name, setName] = useState("");
   const [department, setDepartment] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Load teacher data if editing
+  // Load teacher when editing
   useEffect(() => {
-    if (id) {
+    if (!id) return;
+
+    const loadTeacher = async () => {
       setLoading(true);
-      getDoc(doc(db, "users", id))
-        .then((snap) => {
-          if (snap.exists()) {
-            const data = snap.data();
-            setName(data.name || "");
-            setDepartment(data.department || "");
-          } else {
-            alert("Teacher not found");
-            navigate("/admin/teachers");
-          }
-        })
-        .catch((err) => {
-          console.error(err);
-          alert("Error fetching teacher data: " + err.message);
-        })
-        .finally(() => setLoading(false));
-    }
+      try {
+        const snap = await getDoc(doc(db, "users", id));
+        if (!snap.exists()) {
+          alert("Teacher not found");
+          navigate("/admin/teachers");
+          return;
+        }
+        const data = snap.data();
+        setName(data.name || "");
+        setDepartment(data.department || "");
+      } catch (err) {
+        console.error(err);
+        alert("Failed to load teacher");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTeacher();
   }, [id, navigate]);
 
-  // Save or update teacher
-  const save = async () => {
-    if (!name || !department) {
-      return alert("Please fill in all fields");
+  // Save teacher
+  const saveTeacher = async () => {
+    if (!name.trim() || !department.trim()) {
+      alert("All fields are required");
+      return;
     }
 
     setLoading(true);
     try {
       if (id) {
-        // Update existing teacher
-        await updateDoc(doc(db, "users", id), { name, department });
-        alert("✅ Teacher updated successfully");
+        // Update
+        await updateDoc(doc(db, "users", id), {
+          name: name.trim(),
+          department: department.trim(),
+        });
+        alert("✅ Teacher updated");
       } else {
-        // Add new teacher
+        // Create
         await addDoc(collection(db, "users"), {
-          name,
-          department,
+          name: name.trim(),
+          department: department.trim(),
           role: "teacher",
           active: true,
+          createdAt: new Date(),
         });
-        alert("✅ Teacher added successfully");
+        alert("✅ Teacher added");
       }
+
       navigate("/admin/teachers");
     } catch (err) {
       console.error(err);
-      alert("❌ Error saving teacher: " + err.message);
+      alert("❌ Error saving teacher");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: "40px auto", padding: 20, border: "1px solid #ccc", borderRadius: 8 }}>
-      <h2>{id ? "Edit" : "Add"} Teacher</h2>
+    <div style={{ maxWidth: 420, margin: "30px auto" }}>
+      <h2>{id ? "Edit Teacher" : "Add Teacher"}</h2>
 
-      <div style={{ marginBottom: 10 }}>
-        <label>Name:</label>
+      <div style={{ marginBottom: 12 }}>
+        <label>Name</label>
         <input
           type="text"
-          placeholder="Full Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          style={{ width: "100%", padding: 6, marginTop: 4 }}
+          placeholder="Teacher Name"
+          style={{ width: "100%", padding: 8 }}
         />
       </div>
 
-      <div style={{ marginBottom: 10 }}>
-        <label>Department:</label>
+      <div style={{ marginBottom: 12 }}>
+        <label>Department</label>
         <input
           type="text"
-          placeholder="Department"
           value={department}
           onChange={(e) => setDepartment(e.target.value)}
-          style={{ width: "100%", padding: 6, marginTop: 4 }}
+          placeholder="Department"
+          style={{ width: "100%", padding: 8 }}
         />
       </div>
 
       <button
-        onClick={save}
+        onClick={saveTeacher}
         disabled={loading}
-        style={{ padding: "10px 20px", cursor: "pointer" }}
+        style={{ padding: "10px 18px", cursor: "pointer" }}
       >
-        {loading ? (id ? "Updating..." : "Saving...") : "Save"}
+        {loading ? "Saving..." : "Save"}
       </button>
     </div>
   );

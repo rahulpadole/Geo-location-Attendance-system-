@@ -8,64 +8,85 @@ import {
   query,
   orderBy,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
 } from "firebase/firestore";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
 
 export default function AdminAttendance() {
   const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadAttendance();
   }, []);
 
   const loadAttendance = async () => {
-    setLoading(true);
     try {
-      const q = query(collection(db, "attendance"), orderBy("date", "desc"));
+      const q = query(
+        collection(db, "attendance"),
+        orderBy("date", "desc")
+      );
       const snap = await getDocs(q);
-      setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+      const data = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
+
+      setRecords(data);
     } catch (err) {
       console.error(err);
-      alert("Failed to load attendance");
+      alert("Failed to load attendance records");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEdit = async (id, field, value) => {
+  const updateField = async (attendanceId, field, value) => {
     try {
-      const docRef = doc(db, "attendance", id);
-      await updateDoc(docRef, { [field]: value });
+      const ref = doc(db, "attendance", attendanceId);
+      await updateDoc(ref, { [field]: value });
 
       // Audit log
       await addDoc(collection(db, "auditLogs"), {
         adminId: auth.currentUser.uid,
-        action: `Edited ${field} of attendance ${id} → ${value}`,
+        action: `Updated ${field} for attendance ${attendanceId}`,
         timestamp: serverTimestamp(),
       });
 
-      // Update local state immediately
-      setRecords(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+      // Update UI instantly
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === attendanceId ? { ...r, [field]: value } : r
+        )
+      );
     } catch (err) {
       console.error(err);
-      alert("Error updating attendance: " + err.message);
+      alert("Update failed: " + err.message);
     }
   };
 
-  if (loading) return <p style={{ textAlign: "center", marginTop: 50 }}>Loading attendance records...</p>;
+  if (loading) {
+    return <p style={{ textAlign: "center", marginTop: 40 }}>Loading...</p>;
+  }
 
   return (
-    <>
-      <Navbar role="admin" />
-      <div style={{ maxWidth: 1000, margin: "40px auto", textAlign: "center" }}>
-        <h2>Attendance Records</h2>
+    <div style={{ maxWidth: 1100, margin: "40px auto" }}>
+      <h2 style={{ textAlign: "center" }}>Attendance Records</h2>
 
-        <div style={{ overflowX: "auto", marginTop: 20 }}>
-          <table border="1" cellPadding="8" style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ background: "#f0f0f0" }}>
+      {records.length === 0 ? (
+        <p style={{ textAlign: "center" }}>No records found</p>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table
+            border="1"
+            cellPadding="8"
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              marginTop: 20,
+            }}
+          >
+            <thead style={{ background: "#f4f4f4" }}>
               <tr>
                 <th>Date</th>
                 <th>Teacher</th>
@@ -73,59 +94,53 @@ export default function AdminAttendance() {
                 <th>Out Time</th>
                 <th>Status</th>
                 <th>Late Reason</th>
-                <th>Action</th>
               </tr>
             </thead>
+
             <tbody>
               {records.map((r) => (
                 <tr key={r.id}>
                   <td>{r.date}</td>
                   <td>{r.teacherName || r.userId}</td>
+
                   <td>
                     <input
                       type="time"
                       value={r.inTime || ""}
-                      onChange={(e) => handleEdit(r.id, "inTime", e.target.value)}
+                      onChange={(e) =>
+                        updateField(r.id, "inTime", e.target.value)
+                      }
                     />
                   </td>
+
                   <td>
                     <input
                       type="time"
                       value={r.outTime || ""}
-                      onChange={(e) => handleEdit(r.id, "outTime", e.target.value)}
+                      onChange={(e) =>
+                        updateField(r.id, "outTime", e.target.value)
+                      }
                     />
                   </td>
+
                   <td>{r.status}</td>
+
                   <td>
                     <input
                       type="text"
                       value={r.lateReason || ""}
-                      placeholder="Late reason"
-                      onChange={(e) => handleEdit(r.id, "lateReason", e.target.value)}
+                      placeholder="Optional"
+                      onChange={(e) =>
+                        updateField(r.id, "lateReason", e.target.value)
+                      }
                     />
-                  </td>
-                  <td>
-                    <button
-                      onClick={() => alert("Values updated automatically")}
-                      style={{
-                        padding: "5px 10px",
-                        borderRadius: 4,
-                        background: "#1976d2",
-                        color: "#fff",
-                        border: "none",
-                        cursor: "pointer"
-                      }}
-                    >
-                      ✅
-                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
-      <Footer />
-    </>
+      )}
+    </div>
   );
 }

@@ -1,7 +1,5 @@
 import { auth } from "../services/firebase";
 import { signOut, deleteUser } from "firebase/auth";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
 import { useState } from "react";
 
 export default function AdminProfile() {
@@ -20,7 +18,7 @@ export default function AdminProfile() {
   };
 
   const deleteAccount = async () => {
-    if (!window.confirm("⚠️ Are you sure you want to delete your account?")) return;
+    if (!window.confirm("⚠️ Are you sure you want to permanently delete your account?")) return;
 
     try {
       setLoading(true);
@@ -29,22 +27,29 @@ export default function AdminProfile() {
       window.location.href = "/login";
     } catch (err) {
       console.error(err);
-      alert("❌ Error deleting account: " + err.message);
+      alert(
+        err.code === "auth/requires-recent-login"
+          ? "❌ Please re-login before deleting account"
+          : "❌ Error deleting account: " + err.message
+      );
       setLoading(false);
     }
   };
 
   return (
-    <>
-      <Navbar role="admin" />
-      <div style={{ maxWidth: 500, margin: "40px auto", padding: 20, border: "1px solid #ccc", borderRadius: 8, textAlign: "center" }}>
-        <h2>Admin Profile</h2>
-        <p>Email: <strong>{auth.currentUser?.email}</strong></p>
+    <div style={{ maxWidth: 500, margin: "40px auto", padding: 20 }}>
+      <h2>Admin Profile</h2>
 
+      <p>
+        <strong>Email:</strong>{" "}
+        {auth.currentUser?.email || "Not available"}
+      </p>
+
+      <div style={{ marginTop: 20 }}>
         <button
           onClick={logout}
           disabled={loading}
-          style={{ padding: "10px 20px", margin: "10px", cursor: "pointer" }}
+          style={{ padding: "10px 20px", marginRight: 10 }}
         >
           {loading ? "Processing..." : "Logout"}
         </button>
@@ -52,12 +57,17 @@ export default function AdminProfile() {
         <button
           onClick={deleteAccount}
           disabled={loading}
-          style={{ padding: "10px 20px", margin: "10px", cursor: "pointer", backgroundColor: "#f44336", color: "#fff" }}
+          style={{
+            padding: "10px 20px",
+            backgroundColor: "#f44336",
+            color: "#fff",
+            border: "none",
+            cursor: "pointer"
+          }}
         >
           {loading ? "Processing..." : "Delete Account"}
         </button>
       </div>
-      <Footer />
-    </>
+    </div>
   );
 }
