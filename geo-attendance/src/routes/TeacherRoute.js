@@ -2,10 +2,9 @@ import { Navigate } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
-
 import { auth, db } from "../services/firebase";
 
-export default function TeacherRoute({ children }) {
+export default function TeacherRoute({ children, redirectPath = "/" }) {
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
@@ -17,26 +16,36 @@ export default function TeacherRoute({ children }) {
         return;
       }
 
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
+      try {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
 
-      if (
-        userSnap.exists() &&
-        userSnap.data().role === "teacher" &&
-        userSnap.data().active === true
-      ) {
-        setAllowed(true);
-      } else {
+        if (
+          userSnap.exists() &&
+          userSnap.data().role === "teacher" &&
+          userSnap.data().active === true
+        ) {
+          setAllowed(true);
+        } else {
+          setAllowed(false);
+        }
+      } catch (err) {
+        console.error("Error checking teacher access:", err);
         setAllowed(false);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  if (loading) return <p style={{ textAlign: "center" }}>Checking access...</p>;
+  if (loading)
+    return (
+      <div style={{ textAlign: "center", marginTop: 50 }}>
+        <p>Checking access...</p>
+      </div>
+    );
 
-  return allowed ? children : <Navigate to="/" replace />;
+  return allowed ? children : <Navigate to={redirectPath} replace />;
 }

@@ -1,18 +1,17 @@
 import { useEffect, useState } from "react";
-import { db } from "../services/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import { db } from "../services/firebase";
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 
 export default function AdminDashboard() {
   const [totalTeachers, setTotalTeachers] = useState(0);
   const [todayPresent, setTodayPresent] = useState(0);
   const [lateCount, setLateCount] = useState(0);
-  const [collegeStatus, setCollegeStatus] = useState("");
+  const [collegeStatus, setCollegeStatus] = useState("Loading...");
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
-  const COLLEGE_LAT = 28.6139; // Example, replace with Firestore value
-  const COLLEGE_LNG = 77.209;
-  const RADIUS = 0.15; // 150 meters in km
 
   useEffect(() => {
     fetchStats();
@@ -20,12 +19,12 @@ export default function AdminDashboard() {
 
   const fetchStats = async () => {
     try {
-      // Total teachers
+      // 1️⃣ Total teachers
       const teachersSnap = await getDocs(collection(db, "users"));
       const teachers = teachersSnap.docs.map((d) => d.data()).filter(u => u.role === "teacher");
       setTotalTeachers(teachers.length);
 
-      // Today's attendance
+      // 2️⃣ Today's attendance
       const todayDate = new Date().toISOString().split("T")[0];
       const attSnap = await getDocs(
         query(collection(db, "attendance"), where("date", "==", todayDate))
@@ -41,67 +40,85 @@ export default function AdminDashboard() {
       setTodayPresent(present);
       setLateCount(late);
 
-      // College location status
-      if (teachers.length > 0) {
-        const dist = getDistanceFromLatLonInKm(COLLEGE_LAT, COLLEGE_LNG, COLLEGE_LAT, COLLEGE_LNG);
-        setCollegeStatus(dist <= RADIUS ? "Location Set ✅" : "Location Not Set ❌");
+      // 3️⃣ College location status from Firestore
+      const collegeSnap = await getDoc(doc(db, "collegeSettings", "main"));
+      if (collegeSnap.exists()) {
+        const data = collegeSnap.data();
+        setCollegeStatus(data.latitude && data.longitude ? "Location Set ✅" : "Location Not Set ❌");
       } else {
-        setCollegeStatus("No teachers available");
+        setCollegeStatus("Location Not Set ❌");
       }
     } catch (err) {
       console.error(err);
-      alert("Error fetching stats: " + err.message);
+      setCollegeStatus("Error loading data ❌");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
+  if (loading) return <p style={{ textAlign: "center", marginTop: 50 }}>Loading stats...</p>;
 
   return (
-    <div style={{ maxWidth: 800, margin: "40px auto", textAlign: "center" }}>
-      <h2>Admin Dashboard</h2>
+    <>
+      <Navbar role="admin" />
+      <div style={{ maxWidth: 900, margin: "40px auto", textAlign: "center" }}>
+        <h2>Admin Dashboard</h2>
 
-      <div style={{ display: "flex", justifyContent: "space-around", marginTop: 30 }}>
-        <div style={{ border: "1px solid #ccc", padding: 20, borderRadius: 8 }}>
-          <h3>Total Teachers</h3>
-          <p>{totalTeachers}</p>
+        <div style={{ display: "flex", justifyContent: "space-around", marginTop: 30, flexWrap: "wrap", gap: "20px" }}>
+          <StatCard title="Total Teachers" value={totalTeachers} />
+          <StatCard title="Today Present" value={todayPresent} />
+          <StatCard title="Late Count" value={lateCount} />
+          <StatCard title="College Status" value={collegeStatus} />
         </div>
 
-        <div style={{ border: "1px solid #ccc", padding: 20, borderRadius: 8 }}>
-          <h3>Today Present</h3>
-          <p>{todayPresent}</p>
-        </div>
-
-        <div style={{ border: "1px solid #ccc", padding: 20, borderRadius: 8 }}>
-          <h3>Late Count</h3>
-          <p>{lateCount}</p>
-        </div>
-
-        <div style={{ border: "1px solid #ccc", padding: 20, borderRadius: 8 }}>
-          <h3>College Status</h3>
-          <p>{collegeStatus}</p>
+        <div style={{ marginTop: 40, display: "flex", justifyContent: "center", gap: "15px", flexWrap: "wrap" }}>
+          <NavButton label="College Settings" onClick={() => navigate("/admin/college-settings")} />
+          <NavButton label="Teacher Management" onClick={() => navigate("/admin/teachers")} />
+          <NavButton label="Attendance Records" onClick={() => navigate("/admin/attendance")} />
+          <NavButton label="Export" onClick={() => navigate("/admin/export")} />
+          <NavButton label="Audit Logs" onClick={() => navigate("/admin/audit-logs")} />
+          <NavButton label="My Profile" onClick={() => navigate("/admin/profile")} />
         </div>
       </div>
+      <Footer />
+    </>
+  );
+}
 
-      <div style={{ marginTop: 40, display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap" }}>
-        <button onClick={() => navigate("/admin/college-settings")}>College Settings</button>
-        <button onClick={() => navigate("/admin/teachers")}>Teacher Management</button>
-        <button onClick={() => navigate("/admin/attendance")}>Attendance Records</button>
-        <button onClick={() => navigate("/admin/export")}>Export</button>
-        <button onClick={() => navigate("/admin/audit-logs")}>Audit Logs</button>
-        <button onClick={() => navigate("/admin/profile")}>My Profile</button>
-      </div>
+// --------------------------
+// Reusable small card component
+function StatCard({ title, value }) {
+  return (
+    <div style={{
+      border: "1px solid #ccc",
+      padding: 20,
+      borderRadius: 8,
+      minWidth: 150,
+      boxShadow: "0 2px 6px rgba(0,0,0,0.1)"
+    }}>
+      <h3>{title}</h3>
+      <p style={{ fontSize: 24, fontWeight: "bold", margin: 0 }}>{value}</p>
     </div>
+  );
+}
+
+// --------------------------
+// Reusable button component
+function NavButton({ label, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "10px 20px",
+        borderRadius: 6,
+        background: "#1976d2",
+        color: "#fff",
+        border: "none",
+        cursor: "pointer",
+        fontWeight: "bold"
+      }}
+    >
+      {label}
+    </button>
   );
 }

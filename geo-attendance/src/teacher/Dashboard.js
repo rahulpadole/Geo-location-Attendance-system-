@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { db, auth } from "../services/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 
 export default function TeacherDashboard() {
   const navigate = useNavigate();
@@ -9,26 +9,46 @@ export default function TeacherDashboard() {
   const [status, setStatus] = useState("Not Marked");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [collegeLat, setCollegeLat] = useState(null);
+  const [collegeLng, setCollegeLng] = useState(null);
 
-  // Replace with your college location from Firestore
-  const COLLEGE_LAT = 28.6139;
-  const COLLEGE_LNG = 77.209;
   const RADIUS = 0.15; // 150m in km
 
   useEffect(() => {
     const now = new Date();
     setToday(now.toISOString().split("T")[0]);
+
+    loadCollegeSettings();
     checkAttendance();
-    checkLocation();
   }, []);
 
+  // Load college coordinates from Firestore
+  const loadCollegeSettings = async () => {
+    try {
+      const snap = await getDoc(doc(db, "collegeSettings", "main"));
+      if (snap.exists()) {
+        const data = snap.data();
+        setCollegeLat(parseFloat(data.latitude));
+        setCollegeLng(parseFloat(data.longitude));
+        checkLocation(parseFloat(data.latitude), parseFloat(data.longitude));
+      } else {
+        setMessage("College settings not found ❌");
+      }
+    } catch (err) {
+      console.error(err);
+      setMessage("Failed to load college settings ❌");
+    }
+  };
+
+  // Check today's attendance
   const checkAttendance = async () => {
     setLoading(true);
     try {
+      const todayDate = new Date().toISOString().split("T")[0];
       const q = query(
         collection(db, "attendance"),
         where("userId", "==", auth.currentUser.uid),
-        where("date", "==", new Date().toISOString().split("T")[0])
+        where("date", "==", todayDate)
       );
       const snap = await getDocs(q);
       if (!snap.empty) {
@@ -39,47 +59,51 @@ export default function TeacherDashboard() {
       }
     } catch (err) {
       console.error(err);
+      setStatus("Error fetching attendance ❌");
     } finally {
       setLoading(false);
     }
   };
 
+  // Haversine formula
   const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const R = 6371; // Earth radius in km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
     const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
 
-  const checkLocation = () => {
+  const deg2rad = (deg) => deg * (Math.PI / 180);
+
+  // Check location against college coordinates
+  const checkLocation = (lat = collegeLat, lng = collegeLng) => {
     if (!navigator.geolocation) {
-      setMessage("Geolocation not supported");
+      setMessage("Geolocation not supported ❌");
       return;
     }
-
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        if (!lat || !lng) return setMessage("College coordinates not loaded ❌");
+
         const dist = getDistanceFromLatLonInKm(
           pos.coords.latitude,
           pos.coords.longitude,
-          COLLEGE_LAT,
-          COLLEGE_LNG
+          lat,
+          lng
         );
 
         if (dist <= RADIUS) {
           setMessage("You are inside the college area ✅");
         } else {
-          setMessage("You are outside the college area ❌");
+          setMessage(`You are outside the college area ❌ (${dist.toFixed(3)} km)`);
         }
       },
-      (err) => setMessage("Location error: " + err.message)
+      (err) => setMessage("Location error: " + err.message),
+      { enableHighAccuracy: true }
     );
   };
 
@@ -91,13 +115,9 @@ export default function TeacherDashboard() {
       <p>{message}</p>
 
       <div style={{ marginTop: 20 }}>
-        <button
-          style={{ marginRight: 10 }}
-          onClick={() => navigate("/teacher/attendance")}
-        >
+        <button style={{ marginRight: 10 }} onClick={() => navigate("/teacher/attendance")}>
           Mark Attendance
         </button>
-
         <button onClick={() => navigate("/teacher/leave")}>Mark Leave</button>
       </div>
 
@@ -106,6 +126,10 @@ export default function TeacherDashboard() {
         <button style={{ marginLeft: 10 }} onClick={() => navigate("/teacher/profile")}>
           My Profile
         </button>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <button onClick={() => checkLocation()}>Check My Location</button>
       </div>
 
       {loading && <p>Loading attendance status...</p>}
